@@ -1,0 +1,22 @@
+{
+  "Random Forest": {
+    "acc": 40.5,
+    "time": 6.1
+  },
+  "Extra Trees": {
+    "acc": 45.1,
+    "time": 2.1
+  },
+  "XGBoost": {
+    "acc": 32.9,
+    "time": 8.4
+  },
+  "LightGBM": {
+    "acc": 34.4,
+    "time": 4.2
+  },
+  "DNN": {
+    "acc": 2.2,
+    "time": 22.9
+  }
+}

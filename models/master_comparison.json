@@ -1,0 +1,18 @@
+{
+  "NSL-KDD": {
+    "Random Forest": 73.84,
+    "Extra Trees": 74.34,
+    "XGBoost": 74.57,
+    "LightGBM": 74.08,
+    "DNN": 75.11
+  },
+  "UNSW-NB15": {
+    "Random Forest": 40.5,
+    "Extra Trees": 45.1,
+    "XGBoost": 32.9,
+    "LightGBM": 34.4,
+    "DNN": 2.2
+  },
+  "nsl_far": 3.41,
+  "unsw_far": 24.21
+}

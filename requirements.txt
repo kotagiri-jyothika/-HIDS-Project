@@ -1,0 +1,11 @@
+streamlit==1.32.0
+numpy
+pandas
+scikit-learn
+tensorflow-cpu
+shap
+matplotlib
+xgboost
+lightgbm
+imbalanced-learn
+plotly

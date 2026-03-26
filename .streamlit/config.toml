@@ -1,0 +1,13 @@
+[theme]
+# A sleek dark theme for your Cyber Security Dashboard
+primaryColor = "#3498db"
+backgroundColor = "#0e1117"
+secondaryBackgroundColor = "#262730"
+textColor = "#fafafa"
+font = "sans serif"
+
+[server]
+# Increases the file upload limit from the default 200MB to 500MB
+# This is helpful when reviewers upload large UNSW-NB15 test files
+maxUploadSize = 500
+enableCORS = false
