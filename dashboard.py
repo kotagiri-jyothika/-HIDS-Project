@@ -656,8 +656,53 @@ elif page == "  Real-Time Monitor":
     log_ph=st.empty(); chart_ph=st.empty()
 
     if start:
-        if X_sim is None:
-            st.error(" Test data not found. Run main.py first."); st.stop()
+    if X_sim is None:
+    st.warning(
+        "**Note for online viewers:** The real-time simulation requires the "
+        "dataset files which are stored locally for privacy and size reasons. "
+        "To run this page: download the project, place the data files in the "
+        "data/ folder, and run `python main.py` first."
+    )
+    st.info(
+        "**What this page does:** This page simulates a live security "
+        "operations centre. It streams network packets one by one through "
+        "the selected model and shows ATTACK / UNCERTAIN / CLEAN decisions "
+        "updating in real time — like watching a security dashboard at a company."
+    )
+
+    st.markdown("### Demo mode — simulated packets")
+    st.markdown(
+        "Since the data files are not available in this deployment, "
+        "here is what the real-time monitor looks like with simulated random data:"
+    )
+
+    import numpy as np
+    import time
+
+    demo_counts = {"ATTACK": 0, "UNCERTAIN": 0, "CLEAN": 0}
+    demo_ph = st.empty()
+    prog_ph = st.empty()
+
+    for i in range(30):
+        r = np.random.random()
+        if r > 0.7:
+            demo_counts["ATTACK"] += 1
+        elif r > 0.5:
+            demo_counts["UNCERTAIN"] += 1
+        else:
+            demo_counts["CLEAN"] += 1
+
+        with demo_ph.container():
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Packets scanned", i + 1)
+            c2.metric("ATTACK", demo_counts["ATTACK"])
+            c3.metric("UNCERTAIN", demo_counts["UNCERTAIN"])
+            c4.metric("CLEAN", demo_counts["CLEAN"])
+        prog_ph.progress(int((i + 1) / 30 * 100))
+        time.sleep(0.05)
+
+    st.success("Demo complete. Real mode streams thousands of packets with actual model predictions.")
+    st.stop()
         st.session_state["rt_running"]=True
         total = min(max_p, len(X_sim))
         X_all = X_sim[:total]
