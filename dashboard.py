@@ -77,6 +77,56 @@ import matplotlib.patches as mpatches
 import tensorflow as tf
 
 st.set_page_config(page_title="Hybrid IDS v4", page_icon="🛡️", layout="wide")
+# ── PLAIN ENGLISH GLOSSARY ────────────────────────────────────────────────────
+GLOSSARY = {
+    "NSL-KDD": "NSL-KDD Dataset — A standard cybersecurity test dataset created in 2009. Contains recorded network traffic with labelled attacks. Used by researchers worldwide to test intrusion detection systems. Think of it as a practice dataset of old-style attacks.",
+    "UNSW-NB15": "UNSW-NB15 Dataset — A modern cybersecurity dataset created in 2015 by the University of New South Wales, Australia. Contains real network traffic with 10 types of modern attacks including backdoors and malware. More realistic than NSL-KDD.",
+    "RF": "Random Forest — A machine learning model that uses hundreds of decision trees and takes a majority vote. Like asking 150 experts and going with the most common answer. Fast and reliable.",
+    "ET": "Extra Trees (Extremely Randomised Trees) — Similar to Random Forest but uses extra randomness when building trees. Often faster and generalises better across different datasets.",
+    "XGB": "XGBoost (Extreme Gradient Boosting) — A powerful machine learning model that learns from its mistakes. It builds trees one by one, each one correcting errors from the previous. Very accurate on tabular data.",
+    "LGBM": "LightGBM (Light Gradient Boosting Machine) — Similar to XGBoost but much faster. Designed by Microsoft for large datasets. Excellent speed-accuracy balance.",
+    "DNN": "Deep Neural Network — A system loosely inspired by the human brain. Data passes through multiple layers of mathematical transformations. Can learn very complex patterns but needs more data and time to train.",
+    "SHAP": "SHAP (SHapley Additive exPlanations) — A method to explain WHY a model made a decision. It shows which features (like high packet size or unusual port) pushed the model towards predicting an attack. Named after game theory mathematics by Lloyd Shapley.",
+    "DoS": "DoS — Denial of Service attack. The attacker floods a server with so many fake requests that it becomes too busy to serve real users. Like blocking a shop entrance so genuine customers cannot enter.",
+    "Probe": "Probe Attack — The attacker scans and gathers information about a network before launching a real attack. Like a burglar walking around a building checking which windows are open before breaking in.",
+    "R2L": "R2L — Remote to Local attack. An outsider on the internet gains unauthorised access to a local machine. Like someone breaking into your house remotely by exploiting a weak password.",
+    "U2R": "U2R — User to Root attack. A normal user somehow gains administrator (root) privileges they should not have. Like a regular employee accessing the CEO's confidential files.",
+    "Normal": "Normal Traffic — Regular, legitimate network activity with no attack. Safe packets going about their normal business.",
+    "FAR": "FAR — False Alarm Rate. The percentage of normal traffic that the system wrongly flags as an attack. A lower FAR means fewer unnecessary alerts for security analysts.",
+    "SMOTE": "SMOTE — Synthetic Minority Oversampling Technique. A method to fix imbalanced datasets where one class (like U2R attacks) has very few examples. It creates artificial new examples of the rare class so the model learns it properly.",
+    "Accuracy": "Accuracy — The percentage of predictions the model got right out of all predictions. Example: 76% accuracy means 76 out of every 100 packets were correctly classified.",
+    "F1-Score": "F1-Score — A balanced measure combining both Precision (how many flagged attacks were real) and Recall (how many real attacks were caught). Better than accuracy alone when classes are imbalanced.",
+    "Confidence": "Confidence Score — How certain the model is about its prediction, from 0% to 100%. High confidence means the model is very sure. Low confidence means it is uncertain and a human should review.",
+    "ATTACK": "ATTACK — The model is more than 85% confident this is a genuine network intrusion. Triggers an immediate security alert.",
+    "UNCERTAIN": "UNCERTAIN — The model is 60-85% confident. Not sure enough to auto-alert. Sent to a human security analyst for manual review.",
+    "CLEAN": "CLEAN — The model is less than 60% confident this is an attack. Classified as normal, safe network traffic.",
+}
+
+def tooltip(term):
+    """Show a term with its plain English explanation in an expander"""
+    explanation = GLOSSARY.get(term, "No explanation available.")
+    return f"**{term}** — {explanation}"
+
+def show_glossary_sidebar():
+    """Add a glossary section to the sidebar"""
+    with st.sidebar.expander("📖 What do these terms mean?", expanded=False):
+        st.markdown("**Click any term to learn what it means:**")
+        for term, explanation in GLOSSARY.items():
+            st.markdown(f"**{term}:** {explanation}")
+            st.markdown("---")
+
+def explain_metric(metric_name, value, context=""):
+    """Show a metric with plain English explanation"""
+    explanations = {
+        "Accuracy": f"**{value}** — Out of every 100 packets analysed, the model correctly identified {value} of them.",
+        "F1-Score": f"**{value}** — Combined measure of detection quality (0% = useless, 100% = perfect).",
+        "FAR": f"**{value}** — This many normal packets were wrongly flagged as attacks (lower is better).",
+        "Time": f"**{value}** seconds to train the model on the dataset.",
+    }
+    base = explanations.get(metric_name, f"**{value}**")
+    if context:
+        return f"{base} {context}"
+    return base
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 MODEL_ORDER  = ["Random Forest","Extra Trees","XGBoost","LightGBM","DNN"]
@@ -308,6 +358,9 @@ else:
     all_models = scaler = top15 = class_names = model_accs = None
     best_model = "N/A"
 
+st.sidebar.markdown("---")
+# Add glossary to sidebar
+show_glossary_sidebar()
 st.sidebar.markdown("---")
 page = st.sidebar.radio("Navigate", [
     "  Overview",
