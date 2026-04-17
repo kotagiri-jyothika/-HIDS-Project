@@ -280,7 +280,7 @@ st.sidebar.markdown("**Dual-Dataset | 5-Model Pipeline**")
 st.sidebar.markdown("---")
 
 # Dataset selector — the key feature
-st.sidebar.markdown("### 📁 Active Dataset")
+st.sidebar.markdown("###  Active Dataset")
 active_ds = st.sidebar.radio(
     "Select dataset to explore:",
     ["NSL-KDD", "UNSW-NB15"],
@@ -310,21 +310,21 @@ else:
 
 st.sidebar.markdown("---")
 page = st.sidebar.radio("Navigate", [
-    "🏠  Overview",
-    "⚖️   Dataset Comparison",
-    "🏆  Model Leaderboard",
-    "⚡  Real-Time Monitor",
-    "📂  Upload & Classify",
-    "📊  Confusion Matrices",
-    "🔬  SHAP Explainability",
-    "📋  Classification Reports",
-    "ℹ️   About"
+    "  Overview",
+    "   Dataset Comparison",
+    "  Model Leaderboard",
+    "  Real-Time Monitor",
+    "  Upload & Classify",
+    "  Confusion Matrices",
+    "  SHAP Explainability",
+    "  Classification Reports",
+    "   About"
 ])
 
 st.sidebar.markdown("---")
-st.sidebar.markdown(f"### 🏆 {active_ds} Leaderboard")
+st.sidebar.markdown(f"###  {active_ds} Leaderboard")
 if model_accs:
-    medals = ["🥇","🥈","🥉","4️⃣","5️⃣"]
+    medals = ["1","2","3","4️","5️"]
     ranked = sorted(model_accs.items(), key=lambda x:x[1], reverse=True)
     for i,(name,acc) in enumerate(ranked):
         st.sidebar.markdown(f"{medals[i]} **{MODEL_SHORT[name]}**: `{acc:.2f}%`")
@@ -334,7 +334,7 @@ else:
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 1 — OVERVIEW
 # ═══════════════════════════════════════════════════════════════════════════════
-if page == "🏠  Overview":
+if page == "  Overview":
     st.title(f"🛡️ Hybrid IDS v4 — {active_ds}")
     st.markdown(f"**5-Model Pipeline on {active_ds} ({ds_cfg['year']}) | "
                 f"{ds_cfg['n_classes']} Attack Classes**")
@@ -349,13 +349,13 @@ if page == "🏠  Overview":
     cols = st.columns(5)
     for i,name in enumerate(MODEL_ORDER):
         acc = model_accs.get(name, 0)
-        delta = "🏆 Best" if name==best_model else ""
+        delta = " Best" if name==best_model else ""
         cols[i].metric(f"{MODEL_SHORT[name]}", f"{acc:.2f}%", delta)
 
     st.markdown("---")
 
     # Comparison chart
-    st.subheader(f"📊 5-Model Accuracy & Speed — {active_ds}")
+    st.subheader(f" 5-Model Accuracy & Speed — {active_ds}")
     cmp_path = f"outputs/{ds_tag}/model_comparison.png"
     if os.path.exists(cmp_path):
         st.image(cmp_path, use_column_width=True)
@@ -364,19 +364,19 @@ if page == "🏠  Overview":
     rad_path = f"outputs/{ds_tag}/radar_chart.png"
     if os.path.exists(rad_path):
         st.markdown("---")
-        st.subheader("🕸️ Multi-Metric Radar")
+        st.subheader(" Multi-Metric Radar")
         st.image(rad_path, use_column_width=True)
 
     # Cross-dataset teaser
     if os.path.exists("outputs/cross_dataset_comparison.png"):
         st.markdown("---")
-        st.subheader("🔀 Cross-Dataset View (Both Datasets)")
+        st.subheader(" Cross-Dataset View (Both Datasets)")
         st.image("outputs/cross_dataset_comparison.png", use_column_width=True)
-        st.caption("👆 Switch to the **⚖️ Dataset Comparison** page for detailed analysis")
+        st.caption(" Switch to the ** Dataset Comparison** page for detailed analysis")
 
     st.markdown("---")
     # Attack classes for active dataset
-    st.subheader(f"🎯 Attack Classes — {active_ds}")
+    st.subheader(f" Attack Classes — {active_ds}")
     cls_cols = st.columns(min(5, len(class_names)))
     cls_clrs = get_class_colors(active_ds)
     for i,cn in enumerate(class_names):
@@ -389,8 +389,8 @@ if page == "🏠  Overview":
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 2 — DATASET COMPARISON
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "⚖️   Dataset Comparison":
-    st.title("⚖️ Dataset Comparison — NSL-KDD vs UNSW-NB15")
+elif page == "   Dataset Comparison":
+    st.title(" Dataset Comparison — NSL-KDD vs UNSW-NB15")
     st.markdown("---")
 
     c1,c2 = st.columns(2)
@@ -446,7 +446,7 @@ elif page == "⚖️   Dataset Comparison":
         st.image("outputs/cross_dataset_comparison.png", use_column_width=True)
 
     st.markdown("---")
-    st.subheader("💡 What the Generalisation Gap Tells You")
+    st.subheader(" What the Generalisation Gap Tells You")
     st.markdown("""
     The **Δ chart** (right panel above) shows how much accuracy each model gains or loses
     when moving from NSL-KDD to UNSW-NB15.
@@ -463,7 +463,7 @@ elif page == "⚖️   Dataset Comparison":
     """)
 
     st.markdown("---")
-    st.subheader("📖 Why We Use Both Datasets Together")
+    st.subheader(" Why We Use Both Datasets Together")
     col_a, col_b = st.columns(2)
     with col_a:
         st.markdown("""
@@ -485,8 +485,8 @@ elif page == "⚖️   Dataset Comparison":
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — LEADERBOARD
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "🏆  Model Leaderboard":
-    st.title(f"🏆 Model Leaderboard — {active_ds}")
+elif page == "  Model Leaderboard":
+    st.title(f" Model Leaderboard — {active_ds}")
     st.markdown("---")
 
     if not models_loaded:
@@ -494,7 +494,7 @@ elif page == "🏆  Model Leaderboard":
         st.stop()
 
     ranked = sorted(model_accs.items(), key=lambda x:x[1], reverse=True)
-    medals = ["🥇","🥈","🥉","4️⃣","5️⃣"]
+    medals = ["1","2","3","4️","5️"]
     rows = []
     for i,(name,acc) in enumerate(ranked):
         rows.append({
@@ -520,13 +520,13 @@ elif page == "🏆  Model Leaderboard":
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 4 — REAL-TIME MONITOR
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "⚡  Real-Time Monitor":
-    st.title(f"⚡ Real-Time Monitor — {active_ds}")
+elif page == "  Real-Time Monitor":
+    st.title(f" Real-Time Monitor — {active_ds}")
     st.markdown("Simulates live IDS on the test set — streams row by row with live alerts.")
     st.markdown("---")
 
     if not models_loaded:
-        st.error("❌ Models not found. Run main.py first."); st.stop()
+        st.error(" Models not found. Run main.py first."); st.stop()
 
     @st.cache_data
     def load_sim(tag):
@@ -595,8 +595,8 @@ elif page == "⚡  Real-Time Monitor":
 
     st.markdown("---")
     b1,b2,_ = st.columns([1,1,4])
-    start = b1.button("▶️ START",type="primary",use_container_width=True)
-    stop  = b2.button("⏹️ STOP",type="secondary",use_container_width=True)
+    start = b1.button(" START",type="primary",use_container_width=True)
+    stop  = b2.button(" STOP",type="secondary",use_container_width=True)
     if stop: st.session_state["rt_running"]=False
 
     stat_ph=st.empty(); met_ph=st.empty(); prog_ph=st.empty()
@@ -604,7 +604,7 @@ elif page == "⚡  Real-Time Monitor":
 
     if start:
         if X_sim is None:
-            st.error("❌ Test data not found. Run main.py first."); st.stop()
+            st.error(" Test data not found. Run main.py first."); st.stop()
         st.session_state["rt_running"]=True
         total = min(max_p, len(X_sim))
         X_all = X_sim[:total]
@@ -646,21 +646,21 @@ elif page == "⚡  Real-Time Monitor":
 
             with met_ph.container():
                 m1,m2,m3,m4,m5=st.columns(5)
-                m1.metric("📡 Scanned",f"{done:,}")
+                m1.metric(" Scanned",f"{done:,}")
                 m2.metric("🔴 ATTACK",f"{counts['ATTACK']:,}",
                           f"{counts['ATTACK']/max(done,1)*100:.1f}%")
                 m3.metric("🟡 UNCERTAIN",f"{counts['UNCERTAIN']:,}",
                           f"{counts['UNCERTAIN']/max(done,1)*100:.1f}%")
                 m4.metric("🟢 CLEAN",f"{counts['CLEAN']:,}",
                           f"{counts['CLEAN']/max(done,1)*100:.1f}%")
-                m5.metric("⚡ Progress",f"{done/total*100:.1f}%",f"{done}/{total}")
+                m5.metric(" Progress",f"{done/total*100:.1f}%",f"{done}/{total}")
 
             prog_ph.progress(int(done/total*100))
             if alerts:
                 log_ph.dataframe(pd.DataFrame(alerts),
                                  use_container_width=True,hide_index=True)
             else:
-                log_ph.info("📋 Alert log — waiting...")
+                log_ph.info(" Alert log — waiting...")
 
             fig_l,ax_l=plt.subplots(1,2,figsize=(10,3))
             nz=[(v,l,c) for v,l,c in zip(
@@ -684,7 +684,7 @@ elif page == "⚡  Real-Time Monitor":
             if delay>0: time.sleep(delay)
 
         st.session_state["rt_running"]=False
-        stat_ph.success(f"✅ Done — {done:,} packets | "
+        stat_ph.success(f" Done — {done:,} packets | "
                         f"🔴{counts['ATTACK']:,} 🟡{counts['UNCERTAIN']:,} "
                         f"🟢{counts['CLEAN']:,}")
         st.balloons()
@@ -692,16 +692,16 @@ elif page == "⚡  Real-Time Monitor":
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 5 — UPLOAD & CLASSIFY
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "📂  Upload & Classify":
-    st.title(f"📂 Upload & Classify — {active_ds}")
+elif page == "  Upload & Classify":
+    st.title(f" Upload & Classify — {active_ds}")
     st.markdown(f"Upload a CSV with the same feature format as {active_ds}.")
     st.markdown("---")
 
     if not models_loaded:
-        st.error("❌ Models not found. Run main.py first."); st.stop()
+        st.error(" Models not found. Run main.py first."); st.stop()
 
     uploaded = st.file_uploader("Drop CSV / TXT file", type=["csv","txt"])
-    run_all  = st.checkbox("🔄 Run all 5 models and compare",value=False)
+    run_all  = st.checkbox(" Run all 5 models and compare",value=False)
     if not run_all:
         chosen_m = st.radio("Model",MODEL_ORDER,horizontal=True)
 
@@ -726,10 +726,10 @@ elif page == "📂  Upload & Classify":
             all_feat_cols = list(df_up.columns)[:n_feat]
             X_top  = preprocess_df(df_up, scaler, top15,
                                    all_feat_cols, ds_cfg["cat_cols"])
-            st.success(f"✅ {len(df_up):,} connections loaded — using {active_ds} models.")
+            st.success(f" {len(df_up):,} connections loaded — using {active_ds} models.")
 
             if run_all:
-                st.subheader("🔄 All 5 Models")
+                st.subheader(" All 5 Models")
                 comp = predict_all(all_models, X_top, active_ds)
                 cmp_df = pd.DataFrame({
                     "Model":      list(comp.keys()),
@@ -757,7 +757,7 @@ elif page == "📂  Upload & Classify":
                 st.pyplot(fig_c); plt.close()
 
                 st.markdown("---")
-                st.subheader("🔎 Per-Model Filter")
+                st.subheader(" Per-Model Filter")
                 tabs = st.tabs([MODEL_SHORT[m] for m in comp])
                 for tab,(mn,mr) in zip(tabs,comp.items()):
                     with tab:
@@ -822,9 +822,9 @@ elif page == "📂  Upload & Classify":
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 6 — CONFUSION MATRICES
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "📊  Confusion Matrices":
-    st.title(f"📊 Confusion Matrices — {active_ds}")
-    st.markdown("Diagonal = correct ✅ | Off-diagonal = mistakes ❌")
+elif page == "  Confusion Matrices":
+    st.title(f" Confusion Matrices — {active_ds}")
+    st.markdown("Diagonal = correct  | Off-diagonal = mistakes ")
     st.markdown("---")
 
     cm_files = {m: f"outputs/{ds_tag}/cm_{MODEL_SHORT[m].lower()}.png"
@@ -848,7 +848,7 @@ elif page == "🔬  SHAP Explainability":
     st.markdown("**WHY** did each model flag this as an attack?")
     st.markdown("---")
 
-    t1,t2,t3 = st.tabs(["🌲 RF SHAP","🌿 Extra Trees SHAP","⚡ Force Plot"])
+    t1,t2,t3 = st.tabs([" RF SHAP"," Extra Trees SHAP"," Force Plot"])
     with t1:
         p=f"outputs/{ds_tag}/shap_summary_rf.png"
         if os.path.exists(p): st.image(p,use_column_width=True)
@@ -857,7 +857,7 @@ elif page == "🔬  SHAP Explainability":
         p=f"outputs/{ds_tag}/shap_summary_et.png"
         if os.path.exists(p):
             st.image(p,use_container_width=True)
-            st.info("💡 Compare with RF SHAP — Extra Trees uses random splits so "
+            st.info(" Compare with RF SHAP — Extra Trees uses random splits so "
                     "feature importance rankings often differ. This comparison is "
                     "a unique contribution not present in most BTech IDS papers.")
         else: st.warning("Run main.py first.")
@@ -869,8 +869,8 @@ elif page == "🔬  SHAP Explainability":
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 8 — CLASSIFICATION REPORTS
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "📋  Classification Reports":
-    st.title(f"📋 Classification Reports — {active_ds}")
+elif page == "  Classification Reports":
+    st.title(f" Classification Reports — {active_ds}")
     st.markdown("---")
     rpt_path=f"outputs/{ds_tag}/classification_reports.txt"
     if os.path.exists(rpt_path):
@@ -887,7 +887,7 @@ elif page == "📋  Classification Reports":
             with tab:
                 st.markdown(f"### {name} — **{model_accs.get(name,0):.2f}%**")
                 st.code(reports.get(name,content),language="text")
-        st.download_button("⬇️ Download All Reports",content.encode(),
+        st.download_button(" Download All Reports",content.encode(),
                            f"reports_{ds_tag}.txt","text/plain")
     else:
         st.warning("Run main.py first.")
@@ -895,14 +895,14 @@ elif page == "📋  Classification Reports":
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 9 — ABOUT
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "ℹ️   About":
-    st.title("ℹ️ About — Hybrid IDS v4")
+elif page == "   About":
+    st.title(" About — Hybrid IDS v4")
     st.markdown("---")
     best_nsl  = max(master.get("NSL-KDD",{}).values(),  default=0)
     best_unsw = max(master.get("UNSW-NB15",{}).values(),default=0)
 
     st.markdown(f"""
-    ### 🛡️ Project Details
+    ###  Project Details
 
     | Property | Value |
     |---|---|
@@ -915,19 +915,19 @@ elif page == "ℹ️   About":
     | **Best UNSW-NB15** | {best_unsw:.2f}% |
     | **Total models trained** | 10 (5 per dataset) |
 
-    ### 🔑 What Makes v4 Unique
-    - ✅ **Dual dataset** — NSL-KDD for comparison + UNSW-NB15 for modern validation
-    - ✅ **10 models total** — 5 architectures × 2 datasets
-    - ✅ **Generalisation gap analysis** — cross-dataset Δ chart proves robustness
-    - ✅ **Dataset selector** — switch between NSL-KDD and UNSW-NB15 in one click
-    - ✅ **10-class UNSW-NB15** includes Backdoors, Shellcode, Fuzzers — modern attacks
-    - ✅ **Publication-ready** — dual dataset + 5 models covers all reviewer requirements
+    ###  What Makes v4 Unique
+    -  **Dual dataset** — NSL-KDD for comparison + UNSW-NB15 for modern validation
+    -  **10 models total** — 5 architectures × 2 datasets
+    -  **Generalisation gap analysis** — cross-dataset Δ chart proves robustness
+    -  **Dataset selector** — switch between NSL-KDD and UNSW-NB15 in one click
+    -  **10-class UNSW-NB15** includes Backdoors, Shellcode, Fuzzers — modern attacks
+    -  **Publication-ready** — dual dataset + 5 models covers all reviewer requirements
 
-    ### 📚 Tech Stack
+    ###  Tech Stack
     `Python 3.11` · `scikit-learn` · `XGBoost` · `LightGBM`
     `TensorFlow/Keras` · `SHAP` · `Streamlit` · `NumPy` · `Pandas` · `Matplotlib`
 
-    ### 📥 Download UNSW-NB15
+    ###  Download UNSW-NB15
     ```
     https://research.unsw.edu.au/projects/unsw-nb15-dataset
     Files needed:
