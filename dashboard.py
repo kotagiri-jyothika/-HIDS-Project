@@ -654,9 +654,9 @@ elif page == "  Real-Time Monitor":
 
     stat_ph=st.empty(); met_ph=st.empty(); prog_ph=st.empty()
     log_ph=st.empty(); chart_ph=st.empty()
-#chage 
+#change 
     if start:
-        if X_sim is None:
+       if X_sim is None:
     st.warning(
         "**Note for online viewers:** The real-time simulation requires the "
         "dataset files which are stored locally for privacy and size reasons. "
