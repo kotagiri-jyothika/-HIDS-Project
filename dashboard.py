@@ -404,7 +404,23 @@ if page == "  Overview":
         acc = model_accs.get(name, 0)
         delta = " Best" if name==best_model else ""
         cols[i].metric(f"{MODEL_SHORT[name]}", f"{acc:.2f}%", delta)
-
+st.markdown("---")
+with st.expander("🤔 What do RF, ET, XGB, LGBM, DNN mean? Click to find out", expanded=False):
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**RF — Random Forest**")
+        st.markdown("Uses 150 decision trees and takes a majority vote. Like asking 150 cybersecurity experts and going with the most popular answer.")
+        st.markdown("**ET — Extra Trees**")
+        st.markdown("Like Random Forest but with extra randomness. Often generalises better to new types of attacks.")
+        st.markdown("**XGB — XGBoost**")
+        st.markdown("Learns from its own mistakes. Builds trees one by one, each fixing errors from the previous. Very accurate.")
+    with col2:
+        st.markdown("**LGBM — LightGBM**")
+        st.markdown("Same idea as XGBoost but much faster. Designed for large datasets by Microsoft.")
+        st.markdown("**DNN — Deep Neural Network**")
+        st.markdown("Inspired by how the brain works. Multiple layers of mathematical transformations learn complex attack patterns.")
+        st.markdown("**Accuracy %**")
+        st.markdown("Out of 100 network packets, how many did the model correctly identify as normal or attack.")
     st.markdown("---")
 
     # Comparison chart
@@ -836,6 +852,17 @@ elif page == "  Upload & Classify":
                 m2.metric("🔴 ATTACK",f"{n_a:,}",f"{n_a/t*100:.1f}%")
                 m3.metric("🟡 UNCERTAIN",f"{n_u:,}",f"{n_u/t*100:.1f}%")
                 m4.metric("🟢 CLEAN",f"{n_c:,}",f"{n_c/t*100:.1f}%")
+               with st.expander("❓ What do ATTACK, UNCERTAIN, and CLEAN mean?", expanded=False):
+    st.markdown("""
+| Decision | Meaning | What happens |
+| :--- | :--- | :--- |
+| 🔴 **ATTACK** | Model is >85% confident | Immediate security alert |
+| 🟡 **UNCERTAIN** | Model is 60–85% confident | Sent to human analyst |
+| 🟢 **CLEAN** | Model is <60% confident | Logged as normal traffic |
+
+The **confidence score** is the model's probability output (0% to 100%).
+A score of 95% means the model is 95% sure this packet is an attack.
+    """)
 
                 ch1,ch2=st.columns(2)
                 with ch1:
@@ -896,9 +923,67 @@ elif page == "  Confusion Matrices":
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 7 — SHAP
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "🔬  SHAP Explainability":
-    st.title(f"🔬 SHAP Explainability — {active_ds}")
-    st.markdown("**WHY** did each model flag this as an attack?")
+elif page == " SHAP Explainability":
+    st.title(f" SHAP Explainability — {active_ds}")
+    st.markdown("**WHY did the model flag this as an attack?**")
+st.markdown(""""
+| Short Name | What It Actually Measures |
+| :--- | :--- |
+| **src_bytes** | How many bytes the source (attacker) sent |
+| **dst_bytes** | How many bytes the destination (victim) received |
+| **duration** | How long the connection lasted in seconds |
+| **serror_rate** | Proportion of SYN errors (sign of DoS) |
+| **logged_in** | Was the user logged in? (1=yes, 0=no) |
+"""")
+
+with st.expander("📖 What is SHAP? How do I read these charts? (Click to learn)", expanded=True):
+    st.markdown("""
+    ### SHAP in plain English
+
+    **SHAP** stands for **SHapley Additive exPlanations**.
+
+    Imagine you ask 5 people to solve a problem together.
+    SHAP figures out how much each person contributed to the final answer.
+    In our case, SHAP figures out how much each network feature
+    (like packet size, connection duration, number of errors)
+    contributed to the model's decision to flag something as an attack.
+
+    ---
+
+    ### How to read the SHAP summary plot
+
+    - **Each row = one feature** (a measurable property of network traffic)
+    - **Each dot = one network packet** from the test set
+    - **Colour** = the feature value (red = high value, blue = low value)
+    - **Position left/right** = how much it pushed the decision
+        - **Right side (positive)** = this feature pushed the model towards predicting ATTACK
+        - **Left side (negative)** = this feature pushed the model towards predicting NORMAL
+
+    ---
+
+    ### What the feature names mean
+    
+    | Short Name | What It Actually Measures |
+    |---|---|
+    | src_bytes | How many bytes the source (attacker) sent |
+    | dst_bytes | How many bytes the destination (victim) received |
+    | duration | How long the connection lasted in seconds |
+    | count | How many connections to the same host in the last 2 seconds |
+    | serror_rate | Proportion of connections with SYN errors (sign of DoS attack) |
+    | rerror_rate | Proportion of connections with REJ errors |
+    | byte_ratio | Ratio of sent to received bytes — very high = suspicious |
+    | same_srv_rate | Proportion of connections to the same service |
+    | dst_host_count | Number of connections to the destination host |
+    | logged_in | Was the user logged in? (1=yes, 0=no) |
+
+    ---
+
+    ### Example reading
+
+    If **src_bytes** has many red dots on the RIGHT side, it means:
+    high amounts of data sent by the source = strong indicator of attack.
+    This makes sense for a DoS attack which floods targets with huge volumes of traffic.
+    """)
     st.markdown("---")
 
     t1,t2,t3 = st.tabs([" RF SHAP"," Extra Trees SHAP"," Force Plot"])
