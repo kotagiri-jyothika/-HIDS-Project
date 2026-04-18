@@ -109,7 +109,7 @@ def tooltip(term):
 
 def show_glossary_sidebar():
     """Add a glossary section to the sidebar"""
-    with st.sidebar.expander("📖 What do these terms mean?", expanded=False):
+    with st.sidebar.expander(" What do these terms mean?", expanded=False):
         st.markdown("**Click any term to learn what it means:**")
         for term, explanation in GLOSSARY.items():
             st.markdown(f"**{term}:** {explanation}")
