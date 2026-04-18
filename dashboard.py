@@ -458,7 +458,7 @@ with st.expander("🤔 What do RF, ET, XGB, LGBM, DNN mean? Click to find out", 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 2 — DATASET COMPARISON
 # ═══════════════════════════════════════════════════════════════════════════════
-if page == "   Dataset Comparison":
+elif page == "   Dataset Comparison":
     st.title(" Dataset Comparison — NSL-KDD vs UNSW-NB15")
     st.markdown("---")
 
@@ -852,16 +852,18 @@ elif page == "  Upload & Classify":
                 m2.metric("🔴 ATTACK",f"{n_a:,}",f"{n_a/t*100:.1f}%")
                 m3.metric("🟡 UNCERTAIN",f"{n_u:,}",f"{n_u/t*100:.1f}%")
                 m4.metric("🟢 CLEAN",f"{n_c:,}",f"{n_c/t*100:.1f}%")
-               with st.expander("❓ What do ATTACK, UNCERTAIN, and CLEAN mean?", expanded=False):
+                with st.expander(" What do ATTACK, UNCERTAIN, and CLEAN mean?", expanded=False):
     st.markdown("""
-| Decision | Meaning | What happens |
-| :--- | :--- | :--- |
-| 🔴 **ATTACK** | Model is >85% confident | Immediate security alert |
-| 🟡 **UNCERTAIN** | Model is 60–85% confident | Sent to human analyst |
-| 🟢 **CLEAN** | Model is <60% confident | Logged as normal traffic |
+    | Decision | Meaning | What happens |
+    |---|---|---|
+    | 🔴 **ATTACK** | Model is more than 85% confident this is a real intrusion | Immediate security alert generated |
+    | 🟡 **UNCERTAIN** | Model is 60–85% confident — not sure enough to auto-alert | Sent to human analyst for manual review |
+    | 🟢 **CLEAN** | Model is less than 60% confident this is an attack | Logged as normal traffic, no alert |
 
-The **confidence score** is the model's probability output (0% to 100%).
-A score of 95% means the model is 95% sure this packet is an attack.
+    The **confidence score** is the model's probability output (0% to 100%).
+    A score of 95% means the model is 95% sure this packet is an attack.
+    The UNCERTAIN tier exists so that borderline cases go to a human
+    rather than creating a false alarm that wastes analyst time.
     """)
 
                 ch1,ch2=st.columns(2)
@@ -923,18 +925,10 @@ elif page == "  Confusion Matrices":
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 7 — SHAP
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == " SHAP Explainability":
+elif page == "  SHAP Explainability":
     st.title(f" SHAP Explainability — {active_ds}")
     st.markdown("**WHY did the model flag this as an attack?**")
-st.markdown(""""
-| Short Name | What It Actually Measures |
-| :--- | :--- |
-| **src_bytes** | How many bytes the source (attacker) sent |
-| **dst_bytes** | How many bytes the destination (victim) received |
-| **duration** | How long the connection lasted in seconds |
-| **serror_rate** | Proportion of SYN errors (sign of DoS) |
-| **logged_in** | Was the user logged in? (1=yes, 0=no) |
-"""")
+st.markdown("---")
 
 with st.expander("📖 What is SHAP? How do I read these charts? (Click to learn)", expanded=True):
     st.markdown("""
@@ -962,7 +956,7 @@ with st.expander("📖 What is SHAP? How do I read these charts? (Click to learn
     ---
 
     ### What the feature names mean
-    
+
     | Short Name | What It Actually Measures |
     |---|---|
     | src_bytes | How many bytes the source (attacker) sent |
