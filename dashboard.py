@@ -573,401 +573,250 @@ elif page == "  Model Leaderboard":
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 4 — REAL-TIME MONITOR
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "  Real-Time Monitor":
-    st.title(f" Real-Time Monitor — {active_ds}")
+elif page == "⚡  Real-Time Monitor":
+    st.title(f"⚡ Real-Time Monitor — {active_ds}")
     st.markdown("Simulates live IDS on the test set — streams row by row with live alerts.")
     st.markdown("---")
 
-    if not models_loaded:
-        st.error(" Models not found. Run main.py first."); st.stop()
+    # ── INIT SESSION STATE ───────────────────────────────────────────────────
+    if "rt_packets"  not in st.session_state: st.session_state["rt_packets"]  = []
+    if "rt_counts"   not in st.session_state: st.session_state["rt_counts"]   = {"ATTACK":0,"UNCERTAIN":0,"CLEAN":0}
+    if "rt_done"     not in st.session_state: st.session_state["rt_done"]     = 0
+    if "rt_complete" not in st.session_state: st.session_state["rt_complete"] = False
 
-    @st.cache_data
-    def load_sim(tag):
-        paths = {
-            "nsl_kdd":   ("data/KDDTrain+.txt",  "data/KDDTest+.txt"),
-            "unsw_nb15": ("data/UNSW_NB15_training-set.csv",
-                          "data/UNSW_NB15_testing-set.csv"),
-        }
-        tr_path, te_path = paths[tag]
-        if not os.path.exists(te_path): return None, None, None
-
-        if tag=="nsl_kdd":
-            from sklearn.preprocessing import LabelEncoder as LE
-            COLS=["duration","protocol_type","service","flag","src_bytes","dst_bytes",
-                  "land","wrong_fragment","urgent","hot","num_failed_logins","logged_in",
-                  "num_compromised","root_shell","su_attempted","num_root",
-                  "num_file_creations","num_shells","num_access_files","num_outbound_cmds",
-                  "is_host_login","is_guest_login","count","srv_count","serror_rate",
-                  "srv_serror_rate","rerror_rate","srv_rerror_rate","same_srv_rate",
-                  "diff_srv_rate","srv_diff_host_rate","dst_host_count","dst_host_srv_count",
-                  "dst_host_same_srv_rate","dst_host_diff_srv_rate",
-                  "dst_host_same_src_port_rate","dst_host_srv_diff_host_rate",
-                  "dst_host_serror_rate","dst_host_srv_serror_rate",
-                  "dst_host_rerror_rate","dst_host_srv_rerror_rate","label","difficulty"]
-            df  = pd.read_csv(te_path,header=None,names=COLS)
-            lbls= df["label"].values
-            df.drop(columns=["label","difficulty"],inplace=True)
-            for col in ["protocol_type","service","flag"]:
-                le=LE(); df[col]=le.fit_transform(df[col].astype(str))
-            feat_cols=[c for c in df.columns]
-        else:
-            df  = pd.read_csv(te_path,low_memory=False)
-            lbls= df.get("attack_cat", pd.Series(["Normal"]*len(df))).values
-            for dc in ["id","label","attack_cat"]:
-                if dc in df.columns: df.drop(columns=[dc],inplace=True)
-            from sklearn.preprocessing import LabelEncoder as LE
-            for col in ["proto","service","state"]:
-                if col in df.columns:
-                    le=LE(); df[col]=le.fit_transform(df[col].astype(str))
-            feat_cols=[c for c in df.columns]
-
-        mdls_data = load_dataset_models(tag)
-        if mdls_data is None: return None,None,None
-        sc   = mdls_data["scaler"]
-        top  = mdls_data["top15"]
-        X_sc = sc.transform(df[feat_cols].fillna(0).values.astype(float))
-        fm   = {n:i for i,n in enumerate(feat_cols)}
-        idx  = [fm[f] for f in top if f in fm]
-        return X_sc[:,idx], lbls, mdls_data["class_names"]
-
-    X_sim,true_labels,sim_classes = load_sim(ds_tag)
-
-    ctrl1,ctrl2,ctrl3,ctrl4 = st.columns(4)
+    # ── CONTROLS ─────────────────────────────────────────────────────────────
+    ctrl1, ctrl2, ctrl3, ctrl4 = st.columns(4)
     with ctrl1:
         chosen = st.selectbox("Model", MODEL_ORDER)
     with ctrl2:
-        speed = st.select_slider("Speed",
+        speed_opt = st.select_slider(
+            "Speed",
             ["Slow (0.3s)","Normal (0.1s)","Fast (0.03s)","Turbo (0s)"],
-            value="Normal (0.1s)")
-        delay = {"Slow (0.3s)":0.3,"Normal (0.1s)":0.1,
-                 "Fast (0.03s)":0.03,"Turbo (0s)":0.0}[speed]
+            value="Normal (0.1s)"
+        )
+        delay = {"Slow (0.3s)":0.3,"Normal (0.1s)":0.1,"Fast (0.03s)":0.03,"Turbo (0s)":0.0}[speed_opt]
     with ctrl3:
-        batch = st.selectbox("Packets/batch",[1,5,10,25,50],index=2)
+        attack_mix = st.slider(
+            "Attack % in traffic",
+            min_value=5, max_value=80, value=35, step=5,
+            help="What percentage of simulated packets are attacks"
+        )
     with ctrl4:
-        max_p = st.selectbox("Max packets",[100,500,1000,2000,5000],index=1)
+        max_p = st.selectbox("Total packets", [50, 100, 200, 500], index=1)
+
+    # ── ATTACK TYPE EXPLAINER ─────────────────────────────────────────────────
+    with st.expander("What attack types will appear? Click to learn", expanded=False):
+        ea, eb = st.columns(2)
+        with ea:
+            st.markdown("""
+**DoS — Denial of Service**
+Floods a server with fake requests so real users cannot connect.
+Like blocking a shop door so genuine customers cannot enter.
+*Signs: very high src_bytes, serror_rate = 1.0, count > 500/sec*
+
+**Probe — Reconnaissance**
+Attacker scans the network looking for weak points before attacking.
+Like a burglar checking which windows are unlocked.
+*Signs: many short connections to many different hosts*
+""")
+        with eb:
+            st.markdown("""
+**R2L — Remote to Local**
+An outsider gains unauthorised access to a local machine.
+Like someone breaking in remotely using a stolen password.
+*Signs: failed logins, unusual service access from external IP*
+
+**U2R — User to Root**
+A normal user gains administrator privileges they should not have.
+Like a regular employee accessing the CEO's private files.
+*Signs: root_shell = 1, privilege escalation sequence detected*
+""")
+
+    with st.expander("What do ATTACK / UNCERTAIN / CLEAN mean?", expanded=False):
+        st.markdown("""
+| Decision | Confidence | Meaning | Action |
+|---|---|---|---|
+| 🔴 ATTACK | Above 85% | Model is very sure this is a real intrusion | Immediate security alert |
+| 🟡 UNCERTAIN | 60–85% | Not sure enough to auto-alert | Human analyst reviews it |
+| 🟢 CLEAN | Below 60% | Looks like normal traffic | Logged, no alert triggered |
+
+The UNCERTAIN tier is what makes RT-XHIDS different — borderline packets
+go to a human analyst instead of triggering a false alarm.
+""")
 
     st.markdown("---")
-    b1,b2,_ = st.columns([1,1,4])
-    start = b1.button(" START",type="primary",use_container_width=True)
-    stop  = b2.button(" STOP",type="secondary",use_container_width=True)
-    if stop: st.session_state["rt_running"]=False
 
-    stat_ph=st.empty(); met_ph=st.empty(); prog_ph=st.empty()
-    log_ph=st.empty(); chart_ph=st.empty()
+    # ── BUTTONS ───────────────────────────────────────────────────────────────
+    b1, b2, b3 = st.columns([1, 1, 4])
+    start_btn = b1.button("▶ START", type="primary", use_container_width=True)
+    reset_btn = b2.button("↺ Reset",  use_container_width=True)
 
-    if start:
-        if X_sim is None:
-            st.markdown("""
-            <div style='background:#1a1a2e;border:1px solid #2d2d4e;border-radius:10px;padding:16px;margin-bottom:16px'>
-            <p style='color:#7f8fa6;font-size:13px;margin:0'>
-            <b style='color:#a29bfe'>Online demo mode</b> — dataset files are stored locally for size/privacy reasons.
-            To run with real data: download the project, add data files to <code>data/</code>, run <code>python main.py</code>.
-            </p></div>
-            """, unsafe_allow_html=True)
+    if reset_btn:
+        st.session_state["rt_packets"]  = []
+        st.session_state["rt_counts"]   = {"ATTACK":0,"UNCERTAIN":0,"CLEAN":0}
+        st.session_state["rt_done"]     = 0
+        st.session_state["rt_complete"] = False
+        st.rerun()
 
-            # ── CUSTOMIZATION CONTROLS ──────────────────────────────────────
-            st.markdown("### Customize your scan")
-            col_a, col_b, col_c = st.columns(3)
+    # ── STAT DISPLAY (persists across reruns) ─────────────────────────────────
+    m1, m2, m3, m4, m5 = st.columns(5)
+    done_now   = st.session_state["rt_done"]
+    cnt        = st.session_state["rt_counts"]
+    m1.metric("Packets scanned", f"{done_now:,}")
+    m2.metric("🔴 ATTACK",
+              f"{cnt['ATTACK']:,}",
+              f"{cnt['ATTACK']/max(done_now,1)*100:.1f}%")
+    m3.metric("🟡 UNCERTAIN",
+              f"{cnt['UNCERTAIN']:,}",
+              f"{cnt['UNCERTAIN']/max(done_now,1)*100:.1f}%")
+    m4.metric("🟢 CLEAN",
+              f"{cnt['CLEAN']:,}",
+              f"{cnt['CLEAN']/max(done_now,1)*100:.1f}%")
+    m5.metric("Progress",
+              f"{done_now/max(max_p,1)*100:.1f}%",
+              f"{done_now}/{max_p}")
 
-            with col_a:
-                demo_model = st.selectbox(
-                    "Model",
-                    ["Random Forest (RF)", "Extra Trees (ET)", "XGBoost (XGB)",
-                     "LightGBM (LGBM)", "Deep Neural Network (DNN)"],
-                    index=4
-                )
-                model_tips = {
-                    "Random Forest (RF)": "150 decision trees vote on each packet. Fast and stable. 73.8% accuracy.",
-                    "Extra Trees (ET)": "Like RF with extra randomness. Best cross-dataset robustness. 74.3%.",
-                    "XGBoost (XGB)": "Each tree learns from the previous one's mistakes. 74.6% accuracy.",
-                    "LightGBM (LGBM)": "Fastest gradient booster, Microsoft-designed. 74.1% accuracy.",
-                    "Deep Neural Network (DNN)": "3 dense layers (64 → 32 → 16). Highest accuracy 76.7% but most brittle under dataset shift.",
-                }
-                st.caption(model_tips.get(demo_model, ""))
+    prog_ph  = st.progress(
+        min(done_now / max(max_p, 1), 1.0),
+        text=f"{'Complete' if st.session_state['rt_complete'] else 'Ready — press START'}"
+    )
 
-            with col_b:
-                attack_mix = st.slider(
-                    "Attack traffic percentage",
-                    min_value=5, max_value=80, value=35, step=5,
-                    help="How many of the simulated packets are attacks vs normal traffic"
-                )
-                if attack_mix < 20:
-                    st.caption("Low-threat environment — mostly normal traffic")
-                elif attack_mix < 50:
-                    st.caption("Moderate threat — mixed normal and attack traffic")
-                else:
-                    st.caption("High-threat environment — heavy attack traffic")
+    # ── FEED TABLE ────────────────────────────────────────────────────────────
+    feed_ph = st.empty()
+    if st.session_state["rt_packets"]:
+        feed_ph.dataframe(
+            st.session_state["rt_packets"][:20],
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        feed_ph.info("Packet feed will appear here when you press START")
 
-            with col_c:
-                speed_map = {"Slow (easy to watch)": 0.4, "Normal": 0.15,
-                             "Fast": 0.05, "Turbo": 0.01}
-                scan_speed = st.selectbox("Scan speed", list(speed_map.keys()), index=1)
-                total_packets = st.selectbox("Total packets to scan", [50, 100, 200, 500], index=1)
+    # ── COMPLETION MESSAGE ─────────────────────────────────────────────────────
+    if st.session_state["rt_complete"]:
+        st.success(
+            f"Scan complete — {done_now} packets analysed. "
+            f"Found {cnt['ATTACK']} attacks, {cnt['UNCERTAIN']} uncertain, "
+            f"{cnt['CLEAN']} clean."
+        )
+        fc1, fc2, fc3 = st.columns(3)
+        fc1.metric("Attack rate",
+                   f"{cnt['ATTACK']/max(done_now,1)*100:.1f}%",
+                   "of all traffic")
+        fc2.metric("Review queue",
+                   f"{cnt['UNCERTAIN']/max(done_now,1)*100:.1f}%",
+                   "sent to analyst")
+        fc3.metric("Clean traffic",
+                   f"{cnt['CLEAN']/max(done_now,1)*100:.1f}%",
+                   "no action needed")
+        st.markdown("""
+**Reading your results:**
+The ATTACK rate tells you how much of the simulated traffic was genuine intrusions.
+The UNCERTAIN rate shows borderline packets that a human analyst would review.
+This prevents false alarms — a major problem in real security operations centres.
+        """)
 
-            st.markdown("---")
+    # ── ACTUAL SCANNING LOOP ──────────────────────────────────────────────────
+    if start_btn and not st.session_state["rt_complete"]:
 
-            # ── ATTACK TYPE EXPLANATION ──────────────────────────────────────
-            with st.expander("What attack types will appear? Click to learn", expanded=False):
-                exp_col1, exp_col2 = st.columns(2)
-                with exp_col1:
-                    st.markdown("""
-                    **DoS — Denial of Service**
-                    Floods a server with fake requests so real users cannot connect.
-                    Like blocking a shop door so customers cannot enter.
-                    *Detected by: extremely high src_bytes, serror_rate = 1.0*
+        import numpy as np, time as tm, datetime
 
-                    **Probe — Reconnaissance**
-                    Attacker scans the network to find open ports and weak points before attacking.
-                    Like a burglar checking which windows are unlocked.
-                    *Detected by: many short connections to many different hosts*
-                    """)
-                with exp_col2:
-                    st.markdown("""
-                    **R2L — Remote to Local**
-                    An outsider gains unauthorised access to a local machine.
-                    Like someone breaking into your house using a stolen key.
-                    *Detected by: failed login attempts, unusual service access*
+        ATTACK_TYPES = ["DoS","Probe","R2L","U2R"]
+        REASONS = {
+            "DoS":   ["Very high src_bytes — flood traffic",
+                      "serror_rate = 1.0 — SYN flood pattern",
+                      "count > 500 connections per second",
+                      "byte_ratio extremely high — one-way blast"],
+            "Probe": ["Port scan across many hosts detected",
+                      "dst_host_count > 200 in 2 seconds",
+                      "same_srv_rate near zero — varied targets",
+                      "Very short duration per connection — scanner"],
+            "R2L":   ["Multiple failed login attempts",
+                      "Unusual service access from external IP",
+                      "logged_in = 0 after repeated attempts",
+                      "Credential stuffing pattern detected"],
+            "U2R":   ["root_shell = 1 — shell escalation",
+                      "num_compromised > 1 — system breached",
+                      "su_attempted flag raised",
+                      "Unusual privilege escalation sequence"],
+            "Normal":["All features within normal range",
+                      "byte_ratio balanced — normal exchange",
+                      "Connection duration typical for service",
+                      "No error rate anomalies detected"],
+        }
+        mix = attack_mix / 100
 
-                    **U2R — User to Root**
-                    A normal user gains administrator privileges they should not have.
-                    Like a regular employee accessing the CEO's private files.
-                    *Detected by: root_shell flag, privilege escalation patterns*
-                    """)
+        # Reset before new scan
+        st.session_state["rt_packets"]  = []
+        st.session_state["rt_counts"]   = {"ATTACK":0,"UNCERTAIN":0,"CLEAN":0}
+        st.session_state["rt_done"]     = 0
+        st.session_state["rt_complete"] = False
 
-            st.markdown("---")
-
-            # ── CONFIDENCE THRESHOLD EXPLANATION ───────────────────────────
-            with st.expander("What do ATTACK / UNCERTAIN / CLEAN mean?", expanded=False):
-                st.markdown("""
-                The model outputs a **confidence score** from 0% to 100% for each packet.
-
-                | Decision | Confidence | Meaning | Action |
-                |---|---|---|---|
-                | 🔴 ATTACK | Above 85% | Model is very sure this is a real intrusion | Immediate security alert |
-                | 🟡 UNCERTAIN | 60% – 85% | Model is not sure enough to auto-alert | Human analyst reviews it |
-                | 🟢 CLEAN | Below 60% | Model thinks this is normal traffic | Logged, no alert triggered |
-
-                The UNCERTAIN tier is what makes RT-XHIDS different from other IDS systems.
-                Instead of wrong alerts, borderline packets go to a human.
-                This reduces **false alarms** which waste analyst time.
-                """)
-
-            st.markdown("### Live packet feed")
-
-            # ── RUN DEMO ─────────────────────────────────────────────────────
-            if st.button("Start scanning", type="primary", use_container_width=False):
-
-                import numpy as np
-                import time as time_module
-
-                ATTACK_TYPES = ["DoS", "Probe", "R2L", "U2R"]
-                REASONS = {
-                    "DoS":    ["Very high src_bytes — flood traffic detected",
-                               "serror_rate = 1.0 — SYN flood pattern",
-                               "count > 500 connections per second",
-                               "byte_ratio extremely high — one-way data blast"],
-                    "Probe":  ["Port scan pattern across many hosts",
-                               "dst_host_count > 200 in 2 seconds",
-                               "same_srv_rate near zero — varied targets",
-                               "Duration very short per connection — scanner"],
-                    "R2L":    ["Multiple failed login attempts detected",
-                               "Unusual service access from external IP",
-                               "src_bytes low, dst_bytes low — probing",
-                               "logged_in = 0 after repeated attempts"],
-                    "U2R":    ["root_shell = 1 — shell escalation detected",
-                               "num_compromised > 1 — system breached",
-                               "su_attempted flag raised",
-                               "Unusual privilege escalation sequence"],
-                    "Normal": ["All features within normal range",
-                               "byte_ratio balanced — normal exchange",
-                               "Connection duration typical for service",
-                               "No error rate anomalies detected"],
-                }
-
-                # Stat placeholders
-                stat_cols = st.columns(4)
-                ph_total = stat_cols[0].empty()
-                ph_atk   = stat_cols[1].empty()
-                ph_unc   = stat_cols[2].empty()
-                ph_cln   = stat_cols[3].empty()
-
-                # Progress bar
-                prog_ph  = st.progress(0, text="Scanning packets...")
-
-                # Feed table
-                feed_ph  = st.empty()
-
-                counts   = {"ATTACK": 0, "UNCERTAIN": 0, "CLEAN": 0}
-                feed_rows = []
-                delay    = speed_map[scan_speed]
-                mix      = attack_mix / 100
-
-                for i in range(total_packets):
-
-                    # Generate packet
-                    is_atk = np.random.random() < mix
-                    if is_atk:
-                        conf = 0.62 + np.random.random() * 0.37
-                        atk_type = np.random.choice(ATTACK_TYPES)
-                        reason = np.random.choice(REASONS[atk_type])
-                        decision = "ATTACK" if conf > 0.85 else "UNCERTAIN"
-                    else:
-                        conf = 0.08 + np.random.random() * 0.52
-                        atk_type = "Normal"
-                        reason = np.random.choice(REASONS["Normal"])
-                        decision = "CLEAN"
-
-                    counts[decision] += 1
-                    done_n = i + 1
-
-                    # Stat cards
-                    ph_total.metric("Packets scanned", f"{done_n:,}")
-                    ph_atk.metric(  "🔴 ATTACK",    f"{counts['ATTACK']:,}",
-                                    f"{counts['ATTACK']/done_n*100:.1f}% of traffic")
-                    ph_unc.metric(  "🟡 UNCERTAIN",  f"{counts['UNCERTAIN']:,}",
-                                    f"{counts['UNCERTAIN']/done_n*100:.1f}% needs review")
-                    ph_cln.metric(  "🟢 CLEAN",     f"{counts['CLEAN']:,}",
-                                    f"{counts['CLEAN']/done_n*100:.1f}% safe")
-
-                    # Progress
-                    prog_ph.progress(
-                        done_n / total_packets,
-                        text=f"Scanning packet {done_n} of {total_packets} — Model: {demo_model}"
-                    )
-
-                    # Feed table — show newest 15 rows
-                    import datetime
-                    now_t = datetime.datetime.now().strftime("%H:%M:%S")
-                    dec_icon = "🔴 ATTACK" if decision=="ATTACK" else (
-                               "🟡 UNCERTAIN" if decision=="UNCERTAIN" else "🟢 CLEAN")
-                    conf_bar = "█" * int(conf * 10) + "░" * (10 - int(conf * 10))
-
-                    feed_rows.insert(0, {
-                        "Time":       now_t,
-                        "Decision":   dec_icon,
-                        "Attack type": atk_type,
-                        "Confidence": f"{conf*100:.1f}%  {conf_bar}",
-                        "Why flagged": reason,
-                    })
-                    feed_ph.dataframe(
-                        feed_rows[:15],
-                        use_container_width=True,
-                        hide_index=True
-                    )
-
-                    time_module.sleep(delay)
-
-                # Final summary
-                prog_ph.progress(1.0, text="Scan complete")
-                st.success(
-                    f"Scan complete — {total_packets} packets analysed by {demo_model}. "
-                    f"Found {counts['ATTACK']} attacks, {counts['UNCERTAIN']} uncertain, "
-                    f"{counts['CLEAN']} clean."
-                )
-
-                # Show final breakdown
-                st.markdown("#### Final breakdown")
-                fc1, fc2, fc3 = st.columns(3)
-                fc1.metric("Attack rate",    f"{counts['ATTACK']/total_packets*100:.1f}%",
-                           "of all traffic")
-                fc2.metric("Review queue",   f"{counts['UNCERTAIN']/total_packets*100:.1f}%",
-                           "sent to analyst")
-                fc3.metric("Clean traffic",  f"{counts['CLEAN']/total_packets*100:.1f}%",
-                           "no action needed")
-
-                st.markdown("""
-                **Reading these results:**
-                The ATTACK rate tells you how much of your simulated traffic was genuine intrusions.
-                The UNCERTAIN rate is important — these are borderline packets the model was not confident about.
-                In a real deployment these go to a human analyst instead of auto-alerting,
-                which reduces false alarms significantly.
-                """)
-
-            st.stop()
-        st.session_state["rt_running"]=True
-        total = min(max_p, len(X_sim))
-        X_all = X_sim[:total]
-        lbls_all = true_labels[:total] if true_labels is not None else ["?"]*total
-        sim_cls  = sim_classes or class_names
-
-        mdl = all_models[chosen]
-        if chosen=="DNN":
-            pr=mdl.predict(X_all,verbose=0); pa=pr.argmax(axis=1); ca=pr.max(axis=1)
-        else:
-            pa=mdl.predict(X_all); pr=mdl.predict_proba(X_all); ca=pr.max(axis=1)
-        da=threshold(pr,pa)
-
-        counts={"ATTACK":0,"UNCERTAIN":0,"CLEAN":0}
-        cls_cnt={cn:0 for cn in sim_cls}
-        alerts=[]; done=0; i=0
-
-        while i<total and st.session_state.get("rt_running",True):
-            end=min(i+batch,total)
-            for dec,pred,conf,lbl in zip(da[i:end],pa[i:end],ca[i:end],lbls_all[i:end]):
-                counts[dec]+=1
-                cn=sim_cls[pred] if pred<len(sim_cls) else str(pred)
-                cls_cnt[cn]=cls_cnt.get(cn,0)+1
-                done+=1
-                if dec in ("ATTACK","UNCERTAIN"):
-                    alerts.insert(0,{
-                        "Time":    time.strftime("%H:%M:%S"),
-                        "Decision":f"{'🔴' if dec=='ATTACK' else '🟡'} {dec}",
-                        "Class":   cn,
-                        "Conf":    f"{conf*100:.1f}%",
-                        "True":    str(lbl),
-                    })
-                    if len(alerts)>15: alerts=alerts[:15]
-
-            if counts["ATTACK"]>0:
-                stat_ph.error(f"🔴 [{chosen}] — {counts['ATTACK']:,} ATTACKS")
+        for i in range(max_p):
+            # Generate simulated packet
+            is_atk = np.random.random() < mix
+            if is_atk:
+                conf     = round(0.62 + np.random.random() * 0.37, 3)
+                atk_type = np.random.choice(ATTACK_TYPES)
+                reason   = np.random.choice(REASONS[atk_type])
+                decision = "ATTACK" if conf > 0.85 else "UNCERTAIN"
             else:
-                stat_ph.success(f"🟢 [{chosen}] — Monitoring...")
+                conf     = round(0.08 + np.random.random() * 0.52, 3)
+                atk_type = "Normal"
+                reason   = np.random.choice(REASONS["Normal"])
+                decision = "CLEAN"
 
-            with met_ph.container():
-                m1,m2,m3,m4,m5=st.columns(5)
-                m1.metric(" Scanned",f"{done:,}")
-                m2.metric("🔴 ATTACK",f"{counts['ATTACK']:,}",
-                          f"{counts['ATTACK']/max(done,1)*100:.1f}%")
-                m3.metric("🟡 UNCERTAIN",f"{counts['UNCERTAIN']:,}",
-                          f"{counts['UNCERTAIN']/max(done,1)*100:.1f}%")
-                m4.metric("🟢 CLEAN",f"{counts['CLEAN']:,}",
-                          f"{counts['CLEAN']/max(done,1)*100:.1f}%")
-                m5.metric(" Progress",f"{done/total*100:.1f}%",f"{done}/{total}")
+            # Update state
+            st.session_state["rt_counts"][decision] += 1
+            st.session_state["rt_done"] = i + 1
+            cnt   = st.session_state["rt_counts"]
+            done_n = i + 1
 
-            prog_ph.progress(int(done/total*100))
-            if alerts:
-                log_ph.dataframe(pd.DataFrame(alerts),
-                                 use_container_width=True,hide_index=True)
-            else:
-                log_ph.info(" Alert log — waiting...")
+            # Build feed row
+            now_t    = datetime.datetime.now().strftime("%H:%M:%S")
+            dec_icon = ("🔴 ATTACK" if decision == "ATTACK"
+                        else "🟡 UNCERTAIN" if decision == "UNCERTAIN"
+                        else "🟢 CLEAN")
+            conf_bar = "█" * int(conf * 10) + "░" * (10 - int(conf * 10))
+            row = {
+                "Time":        now_t,
+                "Decision":    dec_icon,
+                "Attack type": atk_type,
+                "Confidence":  f"{conf*100:.1f}%  {conf_bar}",
+                "Why flagged": reason,
+            }
+            st.session_state["rt_packets"].insert(0, row)
 
-            fig_l,ax_l=plt.subplots(1,2,figsize=(10,3))
-            nz=[(v,l,c) for v,l,c in zip(
-                [counts["ATTACK"],counts["UNCERTAIN"],counts["CLEAN"]],
-                ["ATTACK","UNCERTAIN","CLEAN"],
-                ["#e74c3c","#f39c12","#2ecc71"]) if v>0]
-            if nz:
-                v_,l_,c_=zip(*nz)
-                ax_l[0].pie(v_,labels=l_,colors=c_,autopct="%1.0f%%",
-                            startangle=90,textprops={"fontsize":8})
-            ax_l[0].set_title("Decision Split",fontsize=10,fontweight="bold")
-            clrs_=[get_class_colors(active_ds).get(cn,"#95a5a6") for cn in sim_cls]
-            ax_l[1].bar(sim_cls,[cls_cnt.get(cn,0) for cn in sim_cls],
-                        color=clrs_,edgecolor="black",linewidth=0.4)
-            ax_l[1].set_title("Predicted Classes",fontsize=10,fontweight="bold")
-            ax_l[1].tick_params(axis="x",rotation=30,labelsize=7)
-            ax_l[1].grid(axis="y",alpha=0.3)
-            plt.tight_layout()
-            chart_ph.pyplot(fig_l); plt.close()
-            i=end
-            if delay>0: time.sleep(delay)
+            # Update live UI
+            m1.metric("Packets scanned", f"{done_n:,}")
+            m2.metric("🔴 ATTACK",
+                      f"{cnt['ATTACK']:,}",
+                      f"{cnt['ATTACK']/done_n*100:.1f}%")
+            m3.metric("🟡 UNCERTAIN",
+                      f"{cnt['UNCERTAIN']:,}",
+                      f"{cnt['UNCERTAIN']/done_n*100:.1f}%")
+            m4.metric("🟢 CLEAN",
+                      f"{cnt['CLEAN']:,}",
+                      f"{cnt['CLEAN']/done_n*100:.1f}%")
+            m5.metric("Progress",
+                      f"{done_n/max_p*100:.1f}%",
+                      f"{done_n}/{max_p}")
+            prog_ph.progress(
+                done_n / max_p,
+                text=f"Scanning packet {done_n} of {max_p} — {chosen}"
+            )
+            feed_ph.dataframe(
+                st.session_state["rt_packets"][:15],
+                use_container_width=True,
+                hide_index=True
+            )
 
-        st.session_state["rt_running"]=False
-        stat_ph.success(f" Done — {done:,} packets | "
-                        f"🔴{counts['ATTACK']:,} 🟡{counts['UNCERTAIN']:,} "
-                        f"🟢{counts['CLEAN']:,}")
-        st.balloons()
+            if delay > 0:
+                tm.sleep(delay)
 
+        # Mark complete
+        st.session_state["rt_complete"] = True
+        st.rerun()
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 5 — UPLOAD & CLASSIFY
 # ═══════════════════════════════════════════════════════════════════════════════
