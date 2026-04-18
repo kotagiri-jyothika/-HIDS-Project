@@ -458,7 +458,7 @@ with st.expander("🤔 What do RF, ET, XGB, LGBM, DNN mean? Click to find out", 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 2 — DATASET COMPARISON
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "   Dataset Comparison":
+if page == "   Dataset Comparison":
     st.title(" Dataset Comparison — NSL-KDD vs UNSW-NB15")
     st.markdown("---")
 
