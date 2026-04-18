@@ -654,55 +654,135 @@ elif page == "  Real-Time Monitor":
 
     stat_ph=st.empty(); met_ph=st.empty(); prog_ph=st.empty()
     log_ph=st.empty(); chart_ph=st.empty()
-#change 
+
     if start:
-       if X_sim is None:
-    st.warning(
-        "**Note for online viewers:** The real-time simulation requires the "
-        "dataset files which are stored locally for privacy and size reasons. "
-        "To run this page: download the project, place the data files in the "
-        "data/ folder, and run `python main.py` first."
-    )
-    st.info(
-        "**What this page does:** This page simulates a live security "
-        "operations centre. It streams network packets one by one through "
-        "the selected model and shows ATTACK / UNCERTAIN / CLEAN decisions "
-        "updating in real time — like watching a security dashboard at a company."
-    )
+        if X_sim is None:
+            st.warning(
+                "**Note for online viewers:** The real-time simulation requires "
+                "dataset files stored locally. To run this page locally: download "
+                "the project, place data files in the data/ folder, and run "
+                "`python main.py` first."
+            )
+            st.info(
+                "**What this page does:** Simulates a live security operations "
+                "centre. Streams network packets one by one through the selected "
+                "model and shows ATTACK / UNCERTAIN / CLEAN decisions updating "
+                "in real time — like watching a security dashboard at a company."
+            )
+            st.markdown("### Demo mode — simulated packets")
+            st.markdown(
+                "Since data files are not available in this online deployment, "
+                "here is a demonstration with simulated random data:"
+            )
+            import numpy as np
+            demo_counts = {"ATTACK": 0, "UNCERTAIN": 0, "CLEAN": 0}
+            demo_ph  = st.empty()
+            prog_ph2 = st.empty()
+            for di in range(30):
+                r = np.random.random()
+                if r > 0.7:
+                    demo_counts["ATTACK"] += 1
+                elif r > 0.5:
+                    demo_counts["UNCERTAIN"] += 1
+                else:
+                    demo_counts["CLEAN"] += 1
+                with demo_ph.container():
+                    c1, c2, c3, c4 = st.columns(4)
+                    c1.metric("Packets scanned", di + 1)
+                    c2.metric("🔴 ATTACK",    demo_counts["ATTACK"])
+                    c3.metric("🟡 UNCERTAIN", demo_counts["UNCERTAIN"])
+                    c4.metric("🟢 CLEAN",     demo_counts["CLEAN"])
+                prog_ph2.progress(int((di + 1) / 30 * 100))
+                time.sleep(0.05)
+            st.success(
+                "Demo complete. Real mode streams thousands of packets "
+                "with actual model predictions from your trained models."
+            )
+            st.stop()
+        st.session_state["rt_running"]=True
+        total = min(max_p, len(X_sim))
+        X_all = X_sim[:total]
+        lbls_all = true_labels[:total] if true_labels is not None else ["?"]*total
+        sim_cls  = sim_classes or class_names
 
-    st.markdown("### Demo mode — simulated packets")
-    st.markdown(
-        "Since the data files are not available in this deployment, "
-        "here is what the real-time monitor looks like with simulated random data:"
-    )
-
-    import numpy as np
-    import time
-
-    demo_counts = {"ATTACK": 0, "UNCERTAIN": 0, "CLEAN": 0}
-    demo_ph = st.empty()
-    prog_ph = st.empty()
-
-    for i in range(30):
-        r = np.random.random()
-        if r > 0.7:
-            demo_counts["ATTACK"] += 1
-        elif r > 0.5:
-            demo_counts["UNCERTAIN"] += 1
+        mdl = all_models[chosen]
+        if chosen=="DNN":
+            pr=mdl.predict(X_all,verbose=0); pa=pr.argmax(axis=1); ca=pr.max(axis=1)
         else:
-            demo_counts["CLEAN"] += 1
+            pa=mdl.predict(X_all); pr=mdl.predict_proba(X_all); ca=pr.max(axis=1)
+        da=threshold(pr,pa)
 
-        with demo_ph.container():
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Packets scanned", i + 1)
-            c2.metric("ATTACK", demo_counts["ATTACK"])
-            c3.metric("UNCERTAIN", demo_counts["UNCERTAIN"])
-            c4.metric("CLEAN", demo_counts["CLEAN"])
-        prog_ph.progress(int((i + 1) / 30 * 100))
-        time.sleep(0.05)
+        counts={"ATTACK":0,"UNCERTAIN":0,"CLEAN":0}
+        cls_cnt={cn:0 for cn in sim_cls}
+        alerts=[]; done=0; i=0
 
-    st.success("Demo complete. Real mode streams thousands of packets with actual model predictions.")
-    st.stop()
+        while i<total and st.session_state.get("rt_running",True):
+            end=min(i+batch,total)
+            for dec,pred,conf,lbl in zip(da[i:end],pa[i:end],ca[i:end],lbls_all[i:end]):
+                counts[dec]+=1
+                cn=sim_cls[pred] if pred<len(sim_cls) else str(pred)
+                cls_cnt[cn]=cls_cnt.get(cn,0)+1
+                done+=1
+                if dec in ("ATTACK","UNCERTAIN"):
+                    alerts.insert(0,{
+                        "Time":    time.strftime("%H:%M:%S"),
+                        "Decision":f"{'🔴' if dec=='ATTACK' else '🟡'} {dec}",
+                        "Class":   cn,
+                        "Conf":    f"{conf*100:.1f}%",
+                        "True":    str(lbl),
+                    })
+                    if len(alerts)>15: alerts=alerts[:15]
+
+            if counts["ATTACK"]>0:
+                stat_ph.error(f"🔴 [{chosen}] — {counts['ATTACK']:,} ATTACKS")
+            else:
+                stat_ph.success(f"🟢 [{chosen}] — Monitoring...")
+
+            with met_ph.container():
+                m1,m2,m3,m4,m5=st.columns(5)
+                m1.metric(" Scanned",f"{done:,}")
+                m2.metric("🔴 ATTACK",f"{counts['ATTACK']:,}",
+                          f"{counts['ATTACK']/max(done,1)*100:.1f}%")
+                m3.metric("🟡 UNCERTAIN",f"{counts['UNCERTAIN']:,}",
+                          f"{counts['UNCERTAIN']/max(done,1)*100:.1f}%")
+                m4.metric("🟢 CLEAN",f"{counts['CLEAN']:,}",
+                          f"{counts['CLEAN']/max(done,1)*100:.1f}%")
+                m5.metric(" Progress",f"{done/total*100:.1f}%",f"{done}/{total}")
+
+            prog_ph.progress(int(done/total*100))
+            if alerts:
+                log_ph.dataframe(pd.DataFrame(alerts),
+                                 use_container_width=True,hide_index=True)
+            else:
+                log_ph.info(" Alert log — waiting...")
+
+            fig_l,ax_l=plt.subplots(1,2,figsize=(10,3))
+            nz=[(v,l,c) for v,l,c in zip(
+                [counts["ATTACK"],counts["UNCERTAIN"],counts["CLEAN"]],
+                ["ATTACK","UNCERTAIN","CLEAN"],
+                ["#e74c3c","#f39c12","#2ecc71"]) if v>0]
+            if nz:
+                v_,l_,c_=zip(*nz)
+                ax_l[0].pie(v_,labels=l_,colors=c_,autopct="%1.0f%%",
+                            startangle=90,textprops={"fontsize":8})
+            ax_l[0].set_title("Decision Split",fontsize=10,fontweight="bold")
+            clrs_=[get_class_colors(active_ds).get(cn,"#95a5a6") for cn in sim_cls]
+            ax_l[1].bar(sim_cls,[cls_cnt.get(cn,0) for cn in sim_cls],
+                        color=clrs_,edgecolor="black",linewidth=0.4)
+            ax_l[1].set_title("Predicted Classes",fontsize=10,fontweight="bold")
+            ax_l[1].tick_params(axis="x",rotation=30,labelsize=7)
+            ax_l[1].grid(axis="y",alpha=0.3)
+            plt.tight_layout()
+            chart_ph.pyplot(fig_l); plt.close()
+            i=end
+            if delay>0: time.sleep(delay)
+
+        st.session_state["rt_running"]=False
+        stat_ph.success(f" Done — {done:,} packets | "
+                        f"🔴{counts['ATTACK']:,} 🟡{counts['UNCERTAIN']:,} "
+                        f"🟢{counts['CLEAN']:,}")
+        st.balloons()
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 5 — UPLOAD & CLASSIFY
 # ═══════════════════════════════════════════════════════════════════════════════
